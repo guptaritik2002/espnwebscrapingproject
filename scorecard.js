@@ -1,5 +1,8 @@
 const request = require("request");
 const cheerio = require("cheerio");
+const fs=require("fs");
+const path=require("path");
+const xlsx=require("xlsx");
 // const url ="https://www.espncricinfo.com/series/ipl-2020-21-1210595/rajasthan-royals-vs-kolkata-knight-riders-12th-match-1216504/full-scorecard";
 function getscorecardurl(url) {
   request(url, cb);
@@ -46,9 +49,7 @@ function extractMatchdetails(html) {
       .text()
       .split("INNINGS")[0]
       .trim();
-    console.log(
-      `\n  ${date} | ${venue} | ${teamname} vs ${opponentName} | ${result}\n \n `
-    );
+    console.log(`\n ${date} | ${venue} | ${teamname} vs ${opponentName} | ${result}\n `);
     let cInning = $(innings[i]);
     let allrows = cInning.find(".table.batsman tbody tr"); //all rows of the innings .
     for (let j = 0; j < allrows.length; j++) {
@@ -62,9 +63,57 @@ function extractMatchdetails(html) {
         let sixes = $(allcols[6]).text().trim();
         let StrikeRate = $(allcols[7]).text().trim();
         console.log(`name: ${name}------->runs: ${runs} | balls: ${balls} | fours: ${fours} | sixes: ${sixes} | strikerate: ${StrikeRate}` );
+        processPlayer(teamname, name, runs, balls, fours, sixes, StrikeRate, opponentName, venue, date, result);
       }
     }
   }
+}
+
+
+
+function processPlayer(teamname, name, runs, balls, fours, sixes, StrikeRate, opponentName, venue, date, result)
+{
+let teampath=path.join(__dirname,"ipl",teamname);
+dircreater(teampath);
+let filePath=path.join(teampath,name+".xlsx");
+excelReader(filePath, name);
+let content = excelReader(filePath, name);
+let playerObj = {
+   "Runs scored":runs,
+    "Balls":balls,
+    "Fours":fours,
+    "Sixes":sixes,
+    "Strike rate":StrikeRate,
+    "Opponent name":opponentName,
+    "Venue":venue,
+    "Date":date,
+    "Result":result
+}
+content.push(playerObj);
+excelWriter(filePath, content, name);
+
+}
+function dircreater(filepath)
+{
+  if(fs.existsSync(filepath)==false)
+  {
+    fs.mkdirSync(filepath);
+  }
+}
+function excelWriter(filePath, json, sheetName) {
+  let newWB = xlsx.utils.book_new();
+  let newWS = xlsx.utils.json_to_sheet(json);
+  xlsx.utils.book_append_sheet(newWB, newWS, sheetName);
+  xlsx.writeFile(newWB, filePath);
+}
+function excelReader(filePath, sheetName) {
+  if (fs.existsSync(filePath) == false) {
+      return [];
+  }
+  let wb = xlsx.readFile(filePath);
+  let excelData = wb.Sheets[sheetName];
+  let ans = xlsx.utils.sheet_to_json(excelData);
+  return ans;
 }
 
 module.exports = {
